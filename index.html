@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Rilisan</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: #f4f5f7;
+    margin: 0;
+    padding: 20px;
+    color: #1f2430;
+  }
+  .card {
+    max-width: 640px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 14px;
+    margin-bottom: 4px;
+  }
+  input, select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d5d8dd;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fff;
+  }
+  .hint { font-size: 12px; color: #888; margin-top: 4px; }
+  .hidden { display: none !important; }
+
+  #muatBtn {
+    width: 100%;
+    margin-top: 18px;
+    background: #eef1ff;
+    color: #3b4bd6;
+    border: none;
+    border-radius: 8px;
+    padding: 11px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #muatBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  hr.pemisah { border: none; border-top: 1px solid #eaebef; margin: 22px 0; }
+
+  .lagu-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+  }
+  .lagu-row input { flex: 1; }
+  .lagu-row button {
+    flex-shrink: 0;
+    background: #fde8e8;
+    color: #c0392b;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  #tambahLagu {
+    margin-top: 10px;
+    background: #eef1ff;
+    color: #3b4bd6;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  #simpanBtn {
+    width: 100%;
+    margin-top: 22px;
+    background: #3b4bd6;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 13px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #simpanBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .status-msg {
+    margin-top: 14px;
+    font-size: 13px;
+    text-align: center;
+    display: none;
+  }
+  .status-msg.ok { color: #1a7f37; display: block; }
+  .status-msg.err { color: #c0392b; display: block; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Data Rilisan</h1>
+  <p class="sub">Pilih artis &amp; album (atau tambah baru), lalu isi/edit lagunya.</p>
+
+  <label>Nama Artis</label>
+  <select id="pilihArtis">
+    <option value="">-- pilih artis --</option>
+    <option value="__baru__">+ Tambah Artis Baru</option>
+  </select>
+  <input type="text" id="artisBaruInput" class="hidden" placeholder="Ketik nama artis baru">
+
+  <label>Judul Album</label>
+  <select id="pilihAlbum" disabled>
+    <option value="">-- pilih artis dulu --</option>
+  </select>
+  <input type="text" id="albumBaruInput" class="hidden" placeholder="Ketik judul album baru">
+
+  <button id="muatBtn" disabled>Tampilkan Data</button>
+
+  <div id="detailSection" class="hidden">
+    <hr class="pemisah">
+
+    <label>UPC (berlaku untuk semua lagu di album ini)</label>
+    <input type="text" id="upc" placeholder="Kosongkan kalau belum approve">
+
+    <label>Agregator</label>
+    <input type="text" id="agregator" placeholder="Contoh: SoundOn" value="SoundOn">
+
+    <label>Status</label>
+    <select id="status">
+      <option value="">-- pilih --</option>
+      <option value="Approve">Approve</option>
+      <option value="Under Review">Under Review</option>
+      <option value="Rejected">Rejected</option>
+    </select>
+
+    <label>Splitshare</label>
+    <select id="splitshare">
+      <option value="">-- pilih --</option>
+      <option value="Submit">Submit</option>
+      <option value="Belum">Belum</option>
+    </select>
+
+    <label>Splitshare Status</label>
+    <select id="splitshareStatus">
+      <option value="">-- pilih --</option>
+      <option value="Approve">Approve</option>
+      <option value="Belum">Belum</option>
+      <option value="Rejected">Rejected</option>
+    </select>
+
+    <label>Daftar Lagu &amp; ISRC</label>
+    <p class="hint">Lagu yang sudah ada otomatis muncul di bawah — tinggal isi ISRC kalau sudah approve. Tombol "+ Tambah Lagu" untuk lagu baru di album ini.</p>
+    <div id="laguContainer"></div>
+    <button type="button" id="tambahLagu">+ Tambah Lagu</button>
+
+    <button type="button" id="simpanBtn">Simpan</button>
+    <div id="status" class="status-msg"></div>
+  </div>
+</div>
+
+<script>
+  // GANTI dengan URL Web App hasil Deploy dari Code.gs
+  const WEBAPP_URL = "PASTE_URL_WEBAPP_DI_SINI";
+
+  const pilihArtis = document.getElementById("pilihArtis");
+  const artisBaruInput = document.getElementById("artisBaruInput");
+  const pilihAlbum = document.getElementById("pilihAlbum");
+  const albumBaruInput = document.getElementById("albumBaruInput");
+  const muatBtn = document.getElementById("muatBtn");
+  const detailSection = document.getElementById("detailSection");
+  const laguContainer = document.getElementById("laguContainer");
+  const tambahLaguBtn = document.getElementById("tambahLagu");
+  const simpanBtn = document.getElementById("simpanBtn");
+  const statusEl = document.getElementById("status");
+
+  // ---------- MUAT DAFTAR ARTIS SAAT HALAMAN DIBUKA ----------
+  async function muatDaftarArtis() {
+    try {
+      const res = await fetch(WEBAPP_URL + "?action=artis");
+      const result = await res.json();
+      if (result.ok) {
+        result.data.forEach(nama => {
+          const opt = document.createElement("option");
+          opt.value = nama;
+          opt.textContent = nama;
+          pilihArtis.insertBefore(opt, pilihArtis.lastElementChild); // sebelum "+ Tambah Artis Baru"
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+  muatDaftarArtis();
+
+  // ---------- PILIH ARTIS ----------
+  pilihArtis.addEventListener("change", async () => {
+    resetDariAlbum();
+    artisBaruInput.classList.add("hidden");
+    pilihAlbum.innerHTML = "";
+
+    if (!pilihArtis.value) {
+      pilihAlbum.disabled = true;
+      pilihAlbum.innerHTML = '<option value="">-- pilih artis dulu --</option>';
+      cekBisaMuat();
+      return;
+    }
+
+    if (pilihArtis.value === "__baru__") {
+      artisBaruInput.classList.remove("hidden");
+      artisBaruInput.value = "";
+      artisBaruInput.focus();
+      // artis baru = otomatis belum ada album, langsung mode "album baru"
+      pilihAlbum.innerHTML = '<option value="__baru__">+ Tambah Album Baru</option>';
+      pilihAlbum.value = "__baru__";
+      pilihAlbum.disabled = true; // dikunci karena cuma ada 1 pilihan
+      albumBaruInput.classList.remove("hidden");
+      albumBaruInput.value = "";
+      cekBisaMuat();
+      return;
+    }
+
+    pilihAlbum.disabled = false;
+    pilihAlbum.innerHTML = '<option value="">-- pilih album --</option><option value="__baru__">+ Tambah Album Baru</option>';
+
+    const res = await fetch(WEBAPP_URL + "?action=album&artis=" + encodeURIComponent(pilihArtis.value));
+    const result = await res.json();
+    if (result.ok) {
+      result.data.forEach(album => {
+        const opt = document.createElement("option");
+        opt.value = album;
+        opt.textContent = album;
+        pilihAlbum.insertBefore(opt, pilihAlbum.lastElementChild);
+      });
+    }
+    cekBisaMuat();
+  });
+
+  artisBaruInput.addEventListener("input", cekBisaMuat);
+
+  // ---------- PILIH ALBUM ----------
+  pilihAlbum.addEventListener("change", () => {
+    if (pilihAlbum.value === "__baru__") {
+      albumBaruInput.classList.remove("hidden");
+      albumBaruInput.value = "";
+      albumBaruInput.focus();
+    } else {
+      albumBaruInput.classList.add("hidden");
+    }
+    cekBisaMuat();
+  });
+
+  albumBaruInput.addEventListener("input", cekBisaMuat);
+
+  function resetDariAlbum() {
+    albumBaruInput.classList.add("hidden");
+    detailSection.classList.add("hidden");
+    laguContainer.innerHTML = "";
+    statusEl.style.display = "none";
+  }
+
+  function namaArtisTerpilih() {
+    return pilihArtis.value === "__baru__" ? artisBaruInput.value.trim() : pilihArtis.value;
+  }
+
+  function judulAlbumTerpilih() {
+    return pilihAlbum.value === "__baru__" ? albumBaruInput.value.trim() : pilihAlbum.value;
+  }
+
+  function cekBisaMuat() {
+    muatBtn.disabled = !(namaArtisTerpilih() && judulAlbumTerpilih());
+  }
+
+  // ---------- TAMPILKAN DATA (prefill kalau sudah ada, kosong kalau baru) ----------
+  muatBtn.addEventListener("click", async () => {
+    const artis = namaArtisTerpilih();
+    const album = judulAlbumTerpilih();
+    if (!artis || !album) return;
+
+    muatBtn.disabled = true;
+    muatBtn.textContent = "Memuat...";
+    statusEl.style.display = "none";
+
+    let data = { upc: "", agregator: "SoundOn", status: "", splitshare: "", splitshareStatus: "", lagu: [] };
+
+    // hanya cek data lama kalau artis & album dipilih dari yang sudah ada (bukan baru)
+    if (pilihArtis.value !== "__baru__" && pilihAlbum.value !== "__baru__") {
+      try {
+        const res = await fetch(WEBAPP_URL + "?action=albumDetail&artis=" + encodeURIComponent(artis) + "&album=" + encodeURIComponent(album));
+        const result = await res.json();
+        if (result.ok && result.data) data = result.data;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    document.getElementById("upc").value = data.upc || "";
+    document.getElementById("agregator").value = data.agregator || "SoundOn";
+    document.getElementById("status").value = data.status || "";
+    document.getElementById("splitshare").value = data.splitshare || "";
+    document.getElementById("splitshareStatus").value = data.splitshareStatus || "";
+
+    laguContainer.innerHTML = "";
+    if (data.lagu && data.lagu.length > 0) {
+      data.lagu.forEach(item => buatBarisLagu(item.judulLagu, item.isrc, item.row));
+    } else {
+      buatBarisLagu();
+    }
+
+    detailSection.classList.remove("hidden");
+    muatBtn.disabled = false;
+    muatBtn.textContent = "Tampilkan Data";
+  });
+
+  // ---------- BARIS LAGU ----------
+  function buatBarisLagu(judul = "", isrc = "", row = null) {
+    const el = document.createElement("div");
+    el.className = "lagu-row";
+    el.dataset.row = row || "";
+    el.innerHTML = `
+      <input type="text" class="judulLagu" placeholder="Judul Lagu" value="${judul}">
+      <input type="text" class="isrc" placeholder="ISRC (kosongkan kalau belum approve)" value="${isrc}">
+      <button type="button" class="hapusLagu">Hapus</button>
+    `;
+    el.querySelector(".hapusLagu").addEventListener("click", () => el.remove());
+    laguContainer.appendChild(el);
+  }
+  tambahLaguBtn.addEventListener("click", () => buatBarisLagu());
+
+  // ---------- SIMPAN ----------
+  simpanBtn.addEventListener("click", async () => {
+    const artis = namaArtisTerpilih();
+    const album = judulAlbumTerpilih();
+
+    const lagu = Array.from(laguContainer.querySelectorAll(".lagu-row"))
+      .map(el => ({
+        row: el.dataset.row ? parseInt(el.dataset.row, 10) : null,
+        judulLagu: el.querySelector(".judulLagu").value.trim(),
+        isrc: el.querySelector(".isrc").value.trim()
+      }))
+      .filter(item => item.judulLagu || item.isrc || item.row);
+
+    if (!artis || !album) {
+      tampilkanStatus("Artis dan album wajib diisi.", false);
+      return;
+    }
+    if (lagu.length === 0) {
+      tampilkanStatus("Isi minimal satu lagu.", false);
+      return;
+    }
+
+    const payload = {
+      action: "simpanAlbum",
+      namaArtis: artis,
+      judulAlbum: album,
+      upc: document.getElementById("upc").value.trim(),
+      agregator: document.getElementById("agregator").value.trim(),
+      status: document.getElementById("status").value,
+      splitshare: document.getElementById("splitshare").value,
+      splitshareStatus: document.getElementById("splitshareStatus").value,
+      lagu: lagu
+    };
+
+    simpanBtn.disabled = true;
+    simpanBtn.textContent = "Menyimpan...";
+    statusEl.style.display = "none";
+
+    try {
+      const res = await fetch(WEBAPP_URL, { method: "POST", body: JSON.stringify(payload) });
+      const result = await res.json();
+      if (result.ok) {
+        tampilkanStatus("Tersimpan ke sheet \"" + result.sheet + "\".", true);
+      } else {
+        tampilkanStatus("Gagal: " + result.error, false);
+      }
+    } catch (err) {
+      tampilkanStatus("Gagal kirim data: " + err.message, false);
+    } finally {
+      simpanBtn.disabled = false;
+      simpanBtn.textContent = "Simpan";
+    }
+  });
+
+  function tampilkanStatus(pesan, ok) {
+    statusEl.textContent = pesan;
+    statusEl.className = "status-msg " + (ok ? "ok" : "err");
+  }
+</script>
+
+</body>
+</html>
